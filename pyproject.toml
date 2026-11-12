@@ -30,6 +30,7 @@ include = ["app", "app.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["postgresql: integration tests requiring TEST_DATABASE_URL"]
 
 [tool.ruff]
 target-version = "py312"

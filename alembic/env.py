@@ -5,12 +5,12 @@ from alembic import context
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import engine
-from app.models import Book  # noqa: F401 
+from app.models import Book  # noqa: F401
 
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
