@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from logging import ERROR
 from unittest.mock import Mock
 
 import pytest
@@ -129,3 +130,26 @@ def test_domain_errors_use_central_handlers(
 
     assert response.status_code == status_code
     assert response.json() == {"detail": str(error)}
+
+
+def test_unexpected_error_is_logged_and_returns_generic_json(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from app.main import app
+
+    error = RuntimeError("private database details")
+    monkeypatch.setattr(book_service, "list_books", Mock(side_effect=error))
+    with (
+        caplog.at_level(ERROR),
+        TestClient(app, raise_server_exceptions=False) as safe_client,
+    ):
+        response = safe_client.get("/api/v1/books")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error."}
+    assert "private database details" not in response.text
+    assert any(
+        record.exc_info and record.exc_info[1] is error for record in caplog.records
+    )

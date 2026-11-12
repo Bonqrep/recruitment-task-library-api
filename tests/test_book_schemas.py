@@ -47,7 +47,7 @@ def test_requests_reject_invalid_identifiers(schema: type, identifier: object) -
 
 
 @pytest.mark.parametrize("field", ["title", "author"])
-@pytest.mark.parametrize("value", ["", " \t\n", "a" * 256, None, 123])
+@pytest.mark.parametrize("value", ["", " \t\n", "a" * 256, "a\x00b", None, 123])
 def test_create_rejects_invalid_text(field: str, value: object) -> None:
     data = {"serial_number": "000123", "title": "Solaris", "author": "Lem"}
     data[field] = value

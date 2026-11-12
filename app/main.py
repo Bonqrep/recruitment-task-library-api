@@ -6,7 +6,6 @@ from app.api.books import router as books_router
 from app.api.exception_handlers import register_exception_handlers
 from app.api.health import router as health_router
 from app.core.config import get_settings
-from app.schemas.error import ErrorResponse
 
 logging.basicConfig(
     level=logging.INFO,

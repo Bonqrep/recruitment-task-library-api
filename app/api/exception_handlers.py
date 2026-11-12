@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
@@ -8,6 +10,16 @@ from app.core.exceptions import (
     BookNotBorrowedError,
     BookNotFoundError,
 )
+
+logger = logging.getLogger(__name__)
+
+
+async def internal_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error("Unhandled application error", exc_info=exc)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal server error."},
+    )
 
 
 async def book_not_found_handler(
@@ -33,6 +45,7 @@ async def book_conflict_handler(
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(Exception, internal_error_handler)
     app.add_exception_handler(BookNotFoundError, book_not_found_handler)
     app.add_exception_handler(BookAlreadyExistsError, book_conflict_handler)
     app.add_exception_handler(BookBorrowedError, book_conflict_handler)

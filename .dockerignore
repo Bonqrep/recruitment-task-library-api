@@ -18,4 +18,10 @@ htmlcov/
 build/
 dist/
 .DS_Store
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
 tests/
