@@ -8,5 +8,8 @@ SixDigitIdentifier = Annotated[
 ]
 
 BookText = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+    str,
+    StringConstraints(
+        strip_whitespace=True, min_length=1, max_length=255, pattern=r"^[^\x00]+$"
+    ),
 ]
