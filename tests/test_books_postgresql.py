@@ -1,22 +1,17 @@
-import os
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 from queue import Queue
 from threading import Barrier
 from time import monotonic, sleep
-from uuid import uuid4
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
+from psycopg import Connection
 from psycopg.errors import UniqueViolation
-from sqlalchemy import Engine, create_engine, select, text
+from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.core.exceptions import (
     BookAlreadyBorrowedError,
@@ -28,34 +23,6 @@ from app.schemas.book import BookBorrow, BookCreate
 from app.services import book_service
 
 pytestmark = pytest.mark.postgresql
-
-
-@pytest.fixture
-def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[Engine]:
-    """Migrate a separate schema per test; never modify existing application data."""
-    database_url = os.environ.get("TEST_DATABASE_URL")
-    if not database_url:
-        pytest.skip("Set TEST_DATABASE_URL to run PostgreSQL integration tests.")
-
-    from app.db import session as session_module
-
-    schema = f"test_books_{uuid4().hex}"
-    admin = create_engine(database_url)
-    engine = create_engine(
-        database_url, connect_args={"options": f"-csearch_path={schema}"}
-    )
-    with admin.begin() as connection:
-        connection.execute(CreateSchema(schema))
-    try:
-        monkeypatch.setattr(session_module, "engine", engine)
-        config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-        command.upgrade(config, "head")
-        yield engine
-    finally:
-        engine.dispose()
-        with admin.begin() as connection:
-            connection.execute(DropSchema(schema, cascade=True))
-        admin.dispose()
 
 
 @pytest.fixture
@@ -128,7 +95,9 @@ def test_delete_locks_row_and_rechecks_committed_borrowing_state(
 
     def delete() -> None:
         with database.connect() as connection:
-            deleting_pid.put(connection.connection.driver_connection.info.backend_pid)
+            driver_connection = connection.connection.driver_connection
+            assert isinstance(driver_connection, Connection)
+            deleting_pid.put(driver_connection.info.backend_pid)
             with Session(connection) as session:
                 book_service.delete_book(session, "000123")
 
@@ -202,7 +171,7 @@ def test_http_borrow_and_return_persist_state(
 
     assert borrowed.status_code == 200
     timestamp = datetime.fromisoformat(borrowed.json()["borrowed_at"])
-    assert timestamp.utcoffset().total_seconds() == 0
+    assert timestamp.utcoffset() == timedelta(0)
     assert before <= timestamp <= datetime.now(UTC)
     with Session(database) as session:
         book = book_service.get_book(session, "000123")
