@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import PostgresDsn, UrlConstraints
+from pydantic import Field, PostgresDsn, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +10,8 @@ class Settings(BaseSettings):
         PostgresDsn, UrlConstraints(allowed_schemes=["postgresql+psycopg"])
     ]
     app_name: str = "Library Management API"
+    mcp_host: str = Field(default="127.0.0.1", min_length=1)
+    mcp_port: int = Field(default=8001, ge=1, le=65535)
 
     model_config = SettingsConfigDict(
         env_file=".env",

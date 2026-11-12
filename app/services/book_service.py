@@ -42,11 +42,24 @@ def get_book(session: Session, serial_number: str) -> Book:
     return book
 
 
-def list_books(session: Session, limit: int = 100, offset: int = 0) -> list[Book]:
+def list_books(
+    session: Session,
+    limit: int = 100,
+    offset: int = 0,
+    *,
+    title: str | None = None,
+    author: str | None = None,
+    is_borrowed: bool | None = None,
+) -> list[Book]:
+    query = select(Book)
+    if title is not None:
+        query = query.where(Book.title.icontains(title, autoescape=True))
+    if author is not None:
+        query = query.where(Book.author.icontains(author, autoescape=True))
+    if is_borrowed is not None:
+        query = query.where(Book.is_borrowed == is_borrowed)
     return list(
-        session.scalars(
-            select(Book).order_by(Book.serial_number).limit(limit).offset(offset)
-        )
+        session.scalars(query.order_by(Book.serial_number).limit(limit).offset(offset))
     )
 
 
