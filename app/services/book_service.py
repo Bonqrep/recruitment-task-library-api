@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 
 from psycopg.errors import UniqueViolation
@@ -15,6 +16,8 @@ from app.core.exceptions import (
 from app.models.book import Book
 from app.schemas.book import BookBorrow, BookCreate
 
+logger = logging.getLogger(__name__)
+
 
 def create_book(session: Session, data: BookCreate) -> Book:
     book = Book(**data.model_dump())
@@ -28,6 +31,7 @@ def create_book(session: Session, data: BookCreate) -> Book:
         ):
             raise BookAlreadyExistsError(data.serial_number) from exc
         raise
+    logger.info("Created book %s", book.serial_number)
     return book
 
 
@@ -52,6 +56,7 @@ def delete_book(session: Session, serial_number: str) -> None:
         if book.is_borrowed:
             raise BookBorrowedError(serial_number)
         session.delete(book)
+    logger.info("Deleted book %s", serial_number)
 
 
 def borrow_book(session: Session, serial_number: str, data: BookBorrow) -> Book:
@@ -62,6 +67,7 @@ def borrow_book(session: Session, serial_number: str, data: BookBorrow) -> Book:
         book.is_borrowed = True
         book.borrower_card_number = data.borrower_card_number
         book.borrowed_at = datetime.now(UTC)
+    logger.info("Borrowed book %s", serial_number)
     return book
 
 
@@ -73,6 +79,7 @@ def return_book(session: Session, serial_number: str) -> Book:
         book.is_borrowed = False
         book.borrower_card_number = None
         book.borrowed_at = None
+    logger.info("Returned book %s", serial_number)
     return book
 
 
