@@ -1,0 +1,52 @@
+[
+  {
+    "serial_number": "000001",
+    "title": "Solaris",
+    "author": "Stanisław Lem"
+  },
+  {
+    "serial_number": "000002",
+    "title": "Cyberiada",
+    "author": "Stanisław Lem"
+  },
+  {
+    "serial_number": "000003",
+    "title": "Hobbit",
+    "author": "J. R. R. Tolkien"
+  },
+  {
+    "serial_number": "000004",
+    "title": "Władca Pierścieni: Drużyna Pierścienia",
+    "author": "J. R. R. Tolkien"
+  },
+  {
+    "serial_number": "000005",
+    "title": "Diuna",
+    "author": "Frank Herbert"
+  },
+  {
+    "serial_number": "000006",
+    "title": "Rok 1984",
+    "author": "George Orwell"
+  },
+  {
+    "serial_number": "000007",
+    "title": "Mały Książę",
+    "author": "Antoine de Saint-Exupéry"
+  },
+  {
+    "serial_number": "000008",
+    "title": "Lalka",
+    "author": "Bolesław Prus"
+  },
+  {
+    "serial_number": "000009",
+    "title": "Clean Code",
+    "author": "Robert C. Martin"
+  },
+  {
+    "serial_number": "000010",
+    "title": "The Pragmatic Programmer",
+    "author": "David Thomas, Andrew Hunt"
+  }
+]
