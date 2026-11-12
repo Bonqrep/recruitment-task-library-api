@@ -21,6 +21,25 @@ def test_docs_returns_swagger_ui() -> None:
     assert "SwaggerUIBundle" in response.text
 
 
+def test_chat_page_and_assets_are_served_without_initializing_agent() -> None:
+    from app.main import app
+
+    # The autouse fixture changes cwd: assets must resolve relative to app/main.py.
+    with TestClient(app) as client:
+        page = client.get("/chat")
+        assert page.status_code == 200
+        assert page.headers["content-type"].startswith("text/html")
+        assert "Library AI Assistant" in page.text
+        for path, content_type in (
+            ("/static/chat.css", "text/css"),
+            ("/static/chat.js", "javascript"),
+        ):
+            asset = client.get(path)
+            assert asset.status_code == 200
+            assert content_type in asset.headers["content-type"]
+        assert "/chat" not in client.get("/openapi.json").json()["paths"]
+
+
 def test_openapi_documents_books_and_empty_delete_response() -> None:
     from app.main import app
 

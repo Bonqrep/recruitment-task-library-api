@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Library AI Assistant</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/chat.css">
+    <script src="/static/chat.js" defer></script>
+  </head>
+  <body>
+    <main class="chat" aria-labelledby="chat-title">
+      <header class="chat-header">
+        <div>
+          <p class="eyebrow">TWOJA BIBLIOTEKA</p>
+          <h1 id="chat-title">Library AI Assistant</h1>
+          <p class="description">Znajdź książkę, sprawdź dostępność i zarządzaj wypożyczeniami.
+            Każdą zmianę zatwierdzasz przed jej wykonaniem.</p>
+        </div>
+        <button id="new-chat" class="button secondary" type="button">Nowa rozmowa</button>
+      </header>
+
+      <section id="history" class="history" role="log" aria-label="Historia rozmowy"
+        aria-live="polite" aria-relevant="additions" tabindex="0"></section>
+
+      <footer class="composer">
+        <p id="activity" class="activity" role="status" aria-live="polite"></p>
+        <form id="chat-form">
+          <label for="message">Wiadomość</label>
+          <div class="input-row">
+            <textarea id="message" name="message" rows="2" maxlength="4000" required
+              placeholder="Np. czy macie Solaris Stanisława Lema?"
+              aria-describedby="composer-hint" enterkeyhint="send"></textarea>
+            <button id="send" class="button primary" type="submit" disabled>Wyślij</button>
+          </div>
+          <p id="composer-hint" class="hint">Enter — wyślij · Shift+Enter — nowa linia.
+            Historia jest dostępna tylko w otwartej stronie.</p>
+        </form>
+      </footer>
+      <noscript>Włącz JavaScript w przeglądarce, aby korzystać z czatu.</noscript>
+    </main>
+  </body>
+</html>
