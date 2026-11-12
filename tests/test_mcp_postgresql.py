@@ -175,3 +175,12 @@ async def test_http_mcp_search_filters_and_pagination(
         assert [b.title for b in await search(title="_")] == ["under_score"]
         assert [b.title for b in await search(title="\\")] == ["back\\slash"]
         assert [b.title for b in await search(author="_")] == ["100% Correct"]
+
+        # SQL-shaped input is a literal bound value, never an executable query.
+        assert await search(title="'; DROP TABLE books; --") == []
+        assert len(await search(limit=100)) == 26
+        assert_error(
+            await client.call_tool("execute_sql", {"sql": "DELETE FROM books"}),
+            "Unknown tool",
+        )
+        assert len(await search(limit=100)) == 26

@@ -27,6 +27,7 @@ def configure_test_environment(
     monkeypatch.delenv("APP_NAME", raising=False)
     monkeypatch.delenv("MCP_HOST", raising=False)
     monkeypatch.delenv("MCP_PORT", raising=False)
+    monkeypatch.delenv("CHAT_ALLOWED_NETWORKS", raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

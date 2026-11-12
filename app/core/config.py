@@ -1,4 +1,5 @@
 from functools import lru_cache
+from ipaddress import IPv4Network, IPv6Network
 from typing import Annotated
 
 from pydantic import Field, HttpUrl, PostgresDsn, SecretStr, UrlConstraints
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
     openai_timeout: float = Field(default=60.0, gt=0, allow_inf_nan=False)
     chat_timeout: float = Field(default=90.0, gt=0, allow_inf_nan=False)
     mcp_server_url: HttpUrl = HttpUrl("http://127.0.0.1:8001/mcp")
+    chat_allowed_networks: list[IPv4Network | IPv6Network] = Field(default_factory=list)
 
     model_config = SettingsConfigDict(
         env_file=".env",

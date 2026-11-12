@@ -1,14 +1,53 @@
 services:
   api:
+    image: library-management-api:local
     build:
       context: .
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER:-library}:${POSTGRES_PASSWORD:-library}@db:5432/${POSTGRES_DB:-library}}
+      APP_NAME: ${APP_NAME:-Library Management API}
+      RUN_MIGRATIONS: "true"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      OPENAI_TIMEOUT: ${OPENAI_TIMEOUT:-60}
+      CHAT_TIMEOUT: ${CHAT_TIMEOUT:-90}
+      MCP_SERVER_URL: http://mcp:8001/mcp
+      # Docker NAT presents a private peer address; Host/Origin must remain local.
+      CHAT_ALLOWED_NETWORKS: '${CHAT_ALLOWED_NETWORKS:-["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]}'
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-proxy-headers"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).close()"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  mcp:
+    image: library-management-api:local
+    build:
+      context: .
+    command: ["python", "-m", "app.mcp.server"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://${POSTGRES_USER:-library}:${POSTGRES_PASSWORD:-library}@db:5432/${POSTGRES_DB:-library}}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8001"
+    depends_on:
+      db:
+        condition: service_healthy
+      # API health means its entrypoint has finished the sole migration run.
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3).close()"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   db:
     image: postgres:17

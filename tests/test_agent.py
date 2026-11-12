@@ -166,3 +166,5 @@ def test_local_chat_without_key_uses_lifespan_service(
         assert response.status_code == 503
         assert "OPENAI_API_KEY" in response.json()["detail"]
         assert client.get("/health").status_code == 200
+        assert client.get("/docs").status_code == 200
+        assert client.get("/chat").status_code == 200

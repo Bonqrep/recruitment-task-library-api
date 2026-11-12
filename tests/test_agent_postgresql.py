@@ -23,7 +23,7 @@ from app.models.book import Book
 from app.schemas.book import BookBorrow, BookCreate, BookRead
 from app.schemas.chat import ChatRequest, ConfirmRequest
 from app.services import book_service
-from app.services.chat_service import ChatService
+from app.services.chat_service import ChatError, ChatService
 
 pytestmark = [pytest.mark.postgresql, pytest.mark.anyio]
 CASES = [
@@ -251,15 +251,25 @@ async def test_mcp_domain_error_is_passed_to_model(
 
 
 @pytest.mark.parametrize("approved", [True, False])
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        ("borrow_book", {"serial_number": "123456", "borrower_card_number": "000789"}),
+        ("return_book", {"serial_number": "000002"}),
+        ("delete_book", {"serial_number": "123456"}),
+        ("add_book", {"serial_number": "999999", "title": "Solaris", "author": "Lem"}),
+    ],
+)
 async def test_checkpoint_confirmation_controls_real_mcp_database_write(
     monkeypatch: pytest.MonkeyPatch,
     mcp_url: str,
     database: Engine,
     catalog: dict[str, dict],
     approved: bool,
+    name: str,
+    arguments: dict,
 ) -> None:
-    arguments = {"serial_number": "123456", "borrower_card_number": "000789"}
-    async with scripted_openai(monkeypatch, "borrow_book", arguments):
+    async with scripted_openai(monkeypatch, name, arguments):
         service = ChatService(
             Settings.model_validate(
                 {"openai_api_key": "test-key", "mcp_server_url": mcp_url}
@@ -270,19 +280,35 @@ async def test_checkpoint_confirmation_controls_real_mcp_database_write(
         confirmation = pending.pending_confirmation
         assert confirmation is not None
         assert snapshot(database) == catalog
-        result = await service.confirm(
-            ConfirmRequest(
-                thread_id=pending.thread_id,
-                confirmation_id=confirmation.confirmation_id,
-                approved=approved,
-            )
+        assert [op.model_dump() for op in confirmation.operations] == [
+            {"name": name, "args": arguments}
+        ]
+        decision = ConfirmRequest(
+            thread_id=pending.thread_id,
+            confirmation_id=confirmation.confirmation_id,
+            approved=approved,
         )
+        result = await service.confirm(decision)
+        after = snapshot(database)
+        with pytest.raises(ChatError) as repeated:
+            await service.confirm(decision)
+        assert repeated.value.status_code == 409
+        assert snapshot(database) == after
     assert result.status == "completed"
-    after = snapshot(database)
     if approved:
-        assert after["123456"]["is_borrowed"] is True
-        assert after["123456"]["borrower_card_number"] == "000789"
-        assert '"is_borrowed":true' in result.message.replace(" ", "")
+        serial = arguments["serial_number"]
+        if name == "borrow_book":
+            assert after[serial]["is_borrowed"] is True
+            assert after[serial]["borrower_card_number"] == "000789"
+        elif name == "return_book":
+            assert after[serial]["is_borrowed"] is False
+            assert after[serial]["borrower_card_number"] is None
+            assert after[serial]["borrowed_at"] is None
+        elif name == "delete_book":
+            assert serial not in after
+        else:
+            assert after[serial]["title"] == "Solaris"
+        assert after != catalog
     else:
         assert after == catalog
         assert "odrzucona" in result.message

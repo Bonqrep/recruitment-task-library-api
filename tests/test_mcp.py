@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+import httpx
 import pytest
 from mcp.shared.context import RequestContext
 from mcp.shared.memory import create_connected_server_and_client_session
@@ -60,6 +61,24 @@ async def test_tool_discovery_and_schemas() -> None:
     assert write_annotations is not None
     assert read_annotations.readOnlyHint is True
     assert write_annotations.destructiveHint is True
+    expected = {
+        "search_books": ({"title", "author", "is_borrowed", "limit", "offset"}, set()),
+        "get_book": ({"serial_number"}, {"serial_number"}),
+        "add_book": (
+            {"serial_number", "title", "author"},
+            {"serial_number", "title", "author"},
+        ),
+        "borrow_book": (
+            {"serial_number", "borrower_card_number"},
+            {"serial_number", "borrower_card_number"},
+        ),
+        "return_book": ({"serial_number"}, {"serial_number"}),
+        "delete_book": ({"serial_number"}, {"serial_number"}),
+    }
+    for name, (properties, required) in expected.items():
+        schema = tools[name].inputSchema
+        assert set(schema["properties"]) == properties
+        assert set(schema.get("required", [])) == required
 
 
 @pytest.mark.parametrize(
@@ -212,3 +231,26 @@ async def test_reads_use_distinct_sessions(monkeypatch: pytest.MonkeyPatch) -> N
     assert len(contexts) == 2
     for context in contexts:
         context.__exit__.assert_called_once()
+
+
+@pytest.mark.parametrize("available", [True, False])
+async def test_mcp_health_checks_database_without_exposing_errors(
+    monkeypatch: pytest.MonkeyPatch, available: bool
+) -> None:
+    from app.db import session as db_session
+    from app.mcp.server import create_server
+
+    engine = Mock()
+    engine.connect.return_value.__enter__ = Mock(return_value=Mock())
+    engine.connect.return_value.__exit__ = Mock(return_value=False)
+    if not available:
+        engine.connect.side_effect = RuntimeError("private connection credentials")
+    monkeypatch.setattr(db_session, "engine", engine)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_server().streamable_http_app()),
+        base_url="http://localhost",
+    ) as client:
+        response = await client.get("/health")
+    assert response.status_code == (200 if available else 503)
+    assert response.json() == {"status": "ok" if available else "unavailable"}
+    assert "private" not in response.text

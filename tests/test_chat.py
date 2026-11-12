@@ -243,6 +243,101 @@ async def test_new_thread_and_memory_resolve_book_and_ask_for_card(client, backe
     assert service._agent.checkpointer is checkpoint
 
 
+@pytest.mark.parametrize("matches", [0, 2])
+async def test_catalog_observations_control_empty_and_ambiguous_search(
+    client, backend, monkeypatch, matches
+):
+    from app.services import book_service
+
+    _, model, catalog, mutations, _ = backend
+    if matches == 0:
+        catalog.clear()
+    else:
+        catalog["000124"] = {
+            **catalog[SERIAL],
+            "serial_number": "000124",
+            "title": "Clean Architecture",
+        }
+
+    def respond(messages):
+        if not isinstance(messages[-1], ToolMessage):
+            return call("search_books", {"title": "Clean"})
+        observation = messages[-1]
+        assert observation.status == "success"
+        books = observation.artifact["structured_content"]["books"]
+        assert len(books) == matches
+        assert "Nie wymyślaj książek" in messages[0].text
+        if not books:
+            return AIMessage(content="Nie znaleziono książek pasujących do zapytania.")
+        options = "; ".join(f"{b['title']} ({b['serial_number']})" for b in books)
+        return AIMessage(content=f"{options}. Którą książkę wybierasz?")
+
+    model.responder = respond
+    listing = Mock(wraps=book_service.list_books)
+    monkeypatch.setattr(book_service, "list_books", listing)
+    response = await client.post(
+        "/api/v1/chat", json={"message": "Wypożycz książkę Clean"}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+    listing.assert_called_once()
+    assert listing.call_args.kwargs == {
+        "title": "Clean",
+        "author": None,
+        "is_borrowed": None,
+        "limit": 20,
+        "offset": 0,
+    }
+    if matches:
+        for book in catalog.values():
+            assert book["title"] in response.json()["message"]
+            assert book["serial_number"] in response.json()["message"]
+        assert "Którą" in response.json()["message"]
+    else:
+        assert "Nie znaleziono" in response.json()["message"]
+        assert "Clean Code" not in response.json()["message"]
+    for mutation in mutations.values():
+        mutation.assert_not_called()
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+@pytest.mark.parametrize("path", ["", "/confirm"])
+async def test_docker_peer_requires_explicit_network_and_local_host_origin(
+    backend, monkeypatch, allowed, path
+):
+    from app.api.chat import get_chat_service
+    from app.core.config import get_settings
+    from app.main import app
+
+    monkeypatch.setenv(
+        "CHAT_ALLOWED_NETWORKS", '["172.20.0.0/16"]' if allowed else "[]"
+    )
+    get_settings.cache_clear()
+    app.dependency_overrides[get_chat_service] = lambda: backend[0]
+    body = (
+        {"message": "Hej"}
+        if not path
+        else {"thread_id": str(uuid4()), "confirmation_id": "missing", "approved": True}
+    )
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("172.20.0.1", 1234)),
+            base_url="http://localhost:8000",
+        ) as docker_client:
+            response = await docker_client.post("/api/v1/chat" + path, json=body)
+            assert response.status_code == ((404 if path else 200) if allowed else 403)
+            for headers in (
+                {"Origin": "http://foreign.example"},
+                {"Host": "public.example"},
+            ):
+                response = await docker_client.post(
+                    "/api/v1/chat" + path, json=body, headers=headers
+                )
+                assert response.status_code == 403
+    finally:
+        del app.dependency_overrides[get_chat_service]
+
+
 @pytest.mark.parametrize(
     "name,args,mutation",
     [

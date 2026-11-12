@@ -6,13 +6,18 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.core.config import get_settings
 from app.schemas.chat import ChatRequest, ChatResponse, ConfirmRequest
 from app.services.chat_service import ChatError, ChatService
 
 
 def require_local_chat(request: Request) -> None:
     try:
-        local_client = request.client and ip_address(request.client.host).is_loopback
+        peer = ip_address(request.client.host) if request.client else None
+        local_client = peer is not None and (
+            peer.is_loopback
+            or any(peer in network for network in get_settings().chat_allowed_networks)
+        )
         host = request.url.hostname
         local_host = host == "localhost" or (host and ip_address(host).is_loopback)
         origin = request.headers.get("origin")
