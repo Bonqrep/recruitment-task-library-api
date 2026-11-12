@@ -9,7 +9,12 @@ from typing import Annotated, Literal
 from anyio import to_thread
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
-from mcp.types import ClientCapabilities, ElicitationCapability, ToolAnnotations
+from mcp.types import (
+    ClientCapabilities,
+    ElicitationCapability,
+    FormElicitationCapability,
+    ToolAnnotations,
+)
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy.orm import Session
 
@@ -74,7 +79,9 @@ async def _run[T](operation: Callable[[Session], T]) -> T:
 
 async def _confirm(ctx: Context, action: str, arguments: dict[str, str]) -> None:
     if not ctx.session.check_client_capability(
-        ClientCapabilities(elicitation=ElicitationCapability(form={}))
+        ClientCapabilities(
+            elicitation=ElicitationCapability(form=FormElicitationCapability())
+        )
     ):
         raise ToolError("User confirmation requires MCP form elicitation support.")
     try:

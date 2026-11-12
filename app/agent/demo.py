@@ -1,8 +1,9 @@
-"""Developer CLI: python -m app.agent.demo [question]. No conversation memory."""
+"""Developer CLI: python -m app.agent.demo [question]. Separate thread per question."""
 
 import argparse
 import asyncio
 import json
+from uuid import uuid4
 
 from langchain_core.messages import AIMessage, ToolMessage
 
@@ -22,7 +23,11 @@ async def run(questions: list[str]) -> None:
     for question in questions:
         print(f"\nUSER: {question}")
         result = await agent.ainvoke(
-            {"messages": [("user", question)]}, config={"recursion_limit": 50}
+            {"messages": [("user", question)]},
+            config={
+                "configurable": {"thread_id": str(uuid4())},
+                "recursion_limit": 64,
+            },
         )
         for message in result["messages"]:
             if isinstance(message, AIMessage):
@@ -33,7 +38,10 @@ async def run(questions: list[str]) -> None:
                     )
             elif isinstance(message, ToolMessage):
                 print(f"MCP {message.name} [{message.status}]: {message.content}")
-        print(f"ASSISTANT: {result['messages'][-1].text}")
+        if result.get("__interrupt__"):
+            print("PENDING: " + json.dumps(result["__interrupt__"][0].value))
+        else:
+            print(f"ASSISTANT: {result['messages'][-1].text}")
 
 
 def main() -> None:
