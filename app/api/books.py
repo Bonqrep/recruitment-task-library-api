@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.book import Book
-from app.schemas.book import BookCreate, BookRead
+from app.schemas.book import BookBorrow, BookCreate, BookRead
 from app.schemas.types import SixDigitIdentifier
 from app.services import book_service
 
@@ -42,6 +42,36 @@ def list_books(
 )
 def get_book(serial_number: SixDigitIdentifier, session: DatabaseSession) -> Book:
     return book_service.get_book(session, serial_number)
+
+
+@router.post(
+    "/{serial_number}/borrow",
+    response_model=BookRead,
+    status_code=status.HTTP_200_OK,
+    summary="Borrow a book",
+    responses={
+        404: {"description": "Book not found."},
+        409: {"description": "Book is already borrowed."},
+    },
+)
+def borrow_book(
+    serial_number: SixDigitIdentifier, data: BookBorrow, session: DatabaseSession
+) -> Book:
+    return book_service.borrow_book(session, serial_number, data)
+
+
+@router.post(
+    "/{serial_number}/return",
+    response_model=BookRead,
+    status_code=status.HTTP_200_OK,
+    summary="Return a book",
+    responses={
+        404: {"description": "Book not found."},
+        409: {"description": "Book is not borrowed."},
+    },
+)
+def return_book(serial_number: SixDigitIdentifier, session: DatabaseSession) -> Book:
+    return book_service.return_book(session, serial_number)
 
 
 @router.delete(
